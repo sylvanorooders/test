@@ -234,13 +234,12 @@
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script>
             $(document).ready(function () {
-
+                // Gestion des tooltips sur les éléments <path>
                 $("path").each(function () {
                     var $path = $(this);
                     var name = $path.attr("data-name");
 
                     if (name) {
-                        // Créer un tooltip pour chaque path
                         var $tooltip = $("<div class='tooltip'></div>").text(name).appendTo("body");
 
                         $path.on("mousemove", function (e) {
@@ -254,12 +253,10 @@
                         $path.on("mouseleave", function () {
                             $tooltip.hide();
                         });
-
-
                     }
                 });
 
-                // Initialiser les variables
+                // Initialisation des variables
                 var scale = 1;
                 var svg = $('svg');
                 var isDragging = false;
@@ -269,133 +266,57 @@
                 var containerWidth = container.width();
                 var containerHeight = container.height();
 
-                // Zoom avec la molette de la souris
-                $('.map-container').on('wheel', function (event) {
+                // Zoom avec la molette
+                container.on('wheel', function (event) {
                     event.preventDefault();
                     var delta = event.originalEvent.deltaY;
-
-                    // Si la molette descend (zoom out) ou monte (zoom in)
                     scale += delta > 0 ? -0.1 : 0.1;
-
-                    // Limiter l'échelle
-                    scale = Math.min(Math.max(1, scale), 3); // Min 1x, Max 3x
-
-                    // Appliquer le zoom
-                    svg.css('transform', 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)');
-
-                    // Recalculer les limites après le zoom
-                    updateLimits();
+                    scale = Math.min(Math.max(1, scale), 3); // Limite du zoom
+                    updateTransform();
                 });
 
-                // Fonction pour mettre à jour les limites de déplacement
+                // Mise à jour des limites de déplacement
                 function updateLimits() {
                     var svgWidth = svg[0].getBoundingClientRect().width * scale;
                     var svgHeight = svg[0].getBoundingClientRect().height * scale;
-
-                    // Calculer les limites de déplacement
                     var maxX = Math.max(0, (svgWidth - containerWidth) / 2);
                     var maxY = Math.max(0, (svgHeight - containerHeight) / 2);
-
-                    // Appliquer les limites
                     offsetX = Math.min(Math.max(offsetX, -maxX), maxX);
                     offsetY = Math.min(Math.max(offsetY, -maxY), maxY);
+                }
 
-                    // Forcer la carte à rester dans les limites
+                // Application des transformations
+                function updateTransform() {
+                    updateLimits();
                     svg.css('transform', 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)');
                 }
 
-                // Déplacement de la carte avec la souris ou le doigt
-                $('.map-container').on('mousedown touchstart', function (event) {
+                // Déplacement de la carte
+                container.on('mousedown touchstart', function (event) {
                     isDragging = true;
                     startX = event.pageX || event.originalEvent.touches[0].pageX;
                     startY = event.pageY || event.originalEvent.touches[0].pageY;
-
                     svg.addClass('grabbing');
                 });
 
-                $('.map-container').on('mousemove touchmove', function (event) {
+                container.on('mousemove touchmove', function (event) {
                     if (isDragging) {
                         var currentX = event.pageX || event.originalEvent.touches[0].pageX;
                         var currentY = event.pageY || event.originalEvent.touches[0].pageY;
-
-                        var moveX = (currentX - startX) / scale; // Appliquer le facteur de zoom sur le mouvement X
-                        var moveY = (currentY - startY) / scale; // Appliquer le facteur de zoom sur le mouvement Y
-
-                        // Calculer la nouvelle position de la carte en tenant compte du zoom
-                        offsetX += moveX;
-                        offsetY += moveY;
-
-                        // Limiter les déplacements pour ne pas dépasser les bords de la carte
-                        updateLimits();
-
-                        // Appliquer la transformation en tenant compte du facteur de zoom
-                        svg.css('transform', 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)');
-
-                        // Mettre à jour la position de départ pour le prochain déplacement
+                        offsetX += (currentX - startX) / scale;
+                        offsetY += (currentY - startY) / scale;
+                        updateTransform();
                         startX = currentX;
                         startY = currentY;
                     }
                 });
 
-                $('.map-container').on('mouseup touchend', function () {
+                container.on('mouseup touchend mouseleave', function () {
                     isDragging = false;
                     svg.removeClass('grabbing');
-                });
-                $('.map-container').on('mouseleave', function () {
-                    isDragging = false;
-                    svg.removeClass('grabbing');
-                });
-
-
-                var initialDistance = null;
-
-                // Gérer le pinch-to-zoom sur tablette
-                $('.map-container').on('touchstart', function (event) {
-                    if (event.originalEvent.touches.length === 2) {
-                        var touch1 = event.originalEvent.touches[0];
-                        var touch2 = event.originalEvent.touches[1];
-
-                        initialDistance = Math.hypot(
-                            touch2.pageX - touch1.pageX,
-                            touch2.pageY - touch1.pageY
-                        );
-                    }
-                });
-
-                $('.map-container').on('touchmove', function (event) {
-                    if (event.originalEvent.touches.length === 2 && initialDistance) {
-                        event.preventDefault();
-
-                        var touch1 = event.originalEvent.touches[0];
-                        var touch2 = event.originalEvent.touches[1];
-
-                        var newDistance = Math.hypot(
-                            touch2.pageX - touch1.pageX,
-                            touch2.pageY - touch1.pageY
-                        );
-
-                        // Déterminer le facteur de zoom en comparant la distance actuelle à l'initiale
-                        var scaleChange = newDistance / initialDistance;
-                        scale *= scaleChange;
-
-                        // Limiter l'échelle du zoom
-                        scale = Math.min(Math.max(1, scale), 3);
-
-                        // Appliquer le zoom
-                        svg.css('transform', 'scale(' + scale + ') translate(' + offsetX + 'px, ' + offsetY + 'px)');
-
-                        // Recalculer les limites après le zoom
-                        updateLimits();
-
-                        // Mettre à jour la distance initiale
-                        initialDistance = newDistance;
-                    }
-                });
-
-                $('.map-container').on('touchend', function () {
-                    initialDistance = null;
                 });
             });
+
 
 
 
